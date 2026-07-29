@@ -1,0 +1,353 @@
+@switch (node.type) {
+  @case ('Page') {
+    <main
+      class="layout-node page-host"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        @if (editable && child.type === 'Footer') {
+          <div
+            class="page-drop-zone"
+            (dragover)="onDragOver($event)"
+            (drop)="onDrop($event)"
+          >
+            Drop Grid / Navbar / Footer here to add another section
+          </div>
+        }
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+      @if (editable && !hasFooterChild()) {
+        <div
+          class="page-drop-zone"
+          (dragover)="onDragOver($event)"
+          (drop)="onDrop($event)"
+        >
+          Drop Grid / Navbar / Footer here to add another section
+        </div>
+      }
+    </main>
+  }
+
+  @case ('Navbar') {
+    <nav
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+    </nav>
+  }
+
+  @case ('Footer') {
+    <footer
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+    </footer>
+  }
+
+  @case ('Container') {
+    <section
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+      @if (editable && node.children.length === 0) {
+        <div class="empty-drop">Drop components here</div>
+      }
+    </section>
+  }
+
+  @case ('Row') {
+    <div
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+    </div>
+  }
+
+  @case ('Column') {
+    <div
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+    </div>
+  }
+
+  @case ('Grid') {
+    <div
+      class="layout-node grid-host"
+      [class.selected]="isSelected()"
+      [class.drop-target]="acceptsDrop()"
+      [class.editable-grid]="editable"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      @if (editable) {
+        <div class="grid-slots" [ngStyle]="gridSlotsStyle()">
+          @for (cell of gridCells(); track cell.key) {
+            <div
+              class="grid-slot"
+              [class.free]="!cell.occupied"
+              [class.occupied]="cell.occupied"
+              (dragover)="onCellDragOver($event, cell.occupied)"
+              (drop)="onCellDrop($event, cell.col, cell.row, cell.occupied)"
+            >
+              @if (!cell.occupied) {
+                <span class="grid-slot-label">{{ cell.col }}×{{ cell.row }}</span>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @for (child of node.children; track child.id) {
+        <app-layout-renderer
+          [node]="child"
+          [content]="content"
+          [editable]="editable"
+          [selectedId]="selectedId"
+          [inGrid]="true"
+          (selectNode)="onChildSelect($event)"
+          (dropOnNode)="onChildDrop($event)"
+        />
+      }
+    </div>
+  }
+
+  @case ('SectionTitle') {
+    <h2
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      {{ text('text') || 'Section title' }}
+    </h2>
+  }
+
+  @case ('SmallText') {
+    <p
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      {{ text('text') || 'Small text' }}
+    </p>
+  }
+
+  @case ('LongText') {
+    <p
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      {{ text('text') || 'Long text' }}
+    </p>
+  }
+
+  @case ('Button') {
+    <a
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      [href]="text('href') || '#'"
+      (click)="onClick($event); $event.preventDefault()"
+    >
+      {{ text('label') || 'Button' }}
+    </a>
+  }
+
+  @case ('Link') {
+    <a
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      [href]="text('href') || '#'"
+      (click)="onClick($event); $event.preventDefault()"
+    >
+      {{ text('label') || 'Link' }}
+    </a>
+  }
+
+  @case ('Card') {
+    <article
+      class="layout-node card"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      @if (text('image')) {
+        <img [src]="text('image')" [alt]="text('title') || 'Card image'" />
+      }
+      @if (text('title')) {
+        <h3 class="card-title">{{ text('title') }}</h3>
+      }
+      @if (text('description')) {
+        <p class="card-description">{{ text('description') }}</p>
+      }
+    </article>
+  }
+
+  @case ('Carousel') {
+    <div
+      class="layout-node carousel"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      @if (carouselItems().length === 0) {
+        <div class="carousel-empty">
+          {{ editable ? 'Add slides in Content → items (JSON array)' : 'No slides' }}
+        </div>
+      } @else {
+        <div class="carousel-track">
+          @for (slide of carouselItems(); track $index) {
+            <article class="carousel-slide">
+              @if (slide.image) {
+                <img [src]="slide.image" [alt]="slide.title || 'Slide image'" />
+              }
+              @if (slide.title) {
+                <h3 class="carousel-slide-title">{{ slide.title }}</h3>
+              }
+              @if (slide.description) {
+                <p class="carousel-slide-description">{{ slide.description }}</p>
+              }
+              @if (!slide.image && !slide.title && !slide.description) {
+                <p class="carousel-slide-description">Empty slide</p>
+              }
+            </article>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @case ('Divider') {
+    <hr
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    />
+  }
+
+  @case ('Spacer') {
+    <div
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    ></div>
+  }
+
+  @case ('Icon') {
+    <span
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      {{ text('name') || '★' }}
+    </span>
+  }
+
+  @default {
+    <div
+      class="layout-node"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      (click)="onClick($event)"
+    >
+      Unknown: {{ node.type }}
+    </div>
+  }
+}
