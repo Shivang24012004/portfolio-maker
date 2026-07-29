@@ -1,0 +1,316 @@
+<div class="editor-shell">
+  <aside class="palette">
+    <h2>Structure</h2>
+    @for (type of structureTypes; track type) {
+      <button class="palette-item" draggable="true" (dragstart)="onPaletteDragStart($event, type)">
+        {{ type }}
+      </button>
+    }
+
+    <h2>Content</h2>
+    @for (type of contentTypes; track type) {
+      <button class="palette-item" draggable="true" (dragstart)="onPaletteDragStart($event, type)">
+        {{ type }}
+      </button>
+    }
+
+    <p class="muted palette-hint">
+      1) Drop <strong>Grid</strong> on the page (or the bottom drop zone)<br />
+      2) Drop content on a <strong>free cell</strong> (dashed) — grid grows if full<br />
+      3) Use <strong>Layout</strong> for cols/rows and spans — stack as many Grids as you want
+    </p>
+
+    <button class="json-toggle" (click)="toggleJson()">
+      {{ showJson() ? 'Hide JSON' : 'Show JSON' }}
+    </button>
+  </aside>
+
+  <main class="canvas">
+    <app-layout-renderer
+      [node]="layout()"
+      [content]="content()"
+      [editable]="true"
+      [selectedId]="selectedId()"
+      (selectNode)="onSelect($event)"
+      (dropOnNode)="onDropOnNode($event)"
+    />
+  </main>
+
+  <aside class="inspector">
+    <h2>Inspector</h2>
+
+    @if (dropMessage()) {
+      <p class="drop-message">{{ dropMessage() }}</p>
+    }
+
+    @if (selectedNode(); as node) {
+      <p><strong>{{ node.type }}</strong> — {{ node.name }}</p>
+
+      <div class="inspector-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          [class.active]="inspectorTab() === 'content'"
+          (click)="setTab('content')"
+        >
+          Content
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="inspectorTab() === 'layout'"
+          (click)="setTab('layout')"
+        >
+          Layout
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="inspectorTab() === 'style'"
+          (click)="setTab('style')"
+        >
+          Style
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="inspectorTab() === 'settings'"
+          (click)="setTab('settings')"
+        >
+          Settings
+        </button>
+      </div>
+
+      @if (inspectorTab() === 'content') {
+        @if (hasContentSlots()) {
+          @for (field of contentFields(); track field.slot) {
+            <label>
+              {{ field.label }}
+              <span class="style-key">{{ field.slot }}</span>
+
+              @switch (field.control) {
+                @case ('textarea') {
+                  <textarea
+                    rows="4"
+                    [placeholder]="field.placeholder ?? ''"
+                    [ngModel]="slotValue(field.slot)"
+                    (ngModelChange)="updateSlot(field.slot, $event)"
+                  ></textarea>
+                }
+                @case ('url') {
+                  <input
+                    type="url"
+                    [placeholder]="field.placeholder ?? ''"
+                    [ngModel]="slotValue(field.slot)"
+                    (ngModelChange)="updateSlot(field.slot, $event)"
+                  />
+                }
+                @case ('items') {
+                  <textarea
+                    class="items-editor"
+                    rows="8"
+                    [placeholder]="field.placeholder ?? ''"
+                    [ngModel]="itemsJson()"
+                    (ngModelChange)="updateItemsJson($event)"
+                  ></textarea>
+                  @if (itemsError()) {
+                    <span class="field-error">{{ itemsError() }}</span>
+                  }
+                }
+                @default {
+                  <input
+                    type="text"
+                    [placeholder]="field.placeholder ?? ''"
+                    [ngModel]="slotValue(field.slot)"
+                    (ngModelChange)="updateSlot(field.slot, $event)"
+                  />
+                }
+              }
+
+              @if (field.hint) {
+                <span class="field-hint">{{ field.hint }}</span>
+              }
+            </label>
+          }
+
+          @if (imagePreviewUrl(); as preview) {
+            <div class="image-preview">
+              <span class="style-key">Preview</span>
+              <img [src]="preview" alt="Content preview" />
+            </div>
+          }
+        } @else {
+          <p class="muted">
+            {{ node.type }} has no content slots. Use Layout for grid placement.
+          </p>
+        }
+      }
+
+      @if (inspectorTab() === 'layout') {
+        @if (isGridNode()) {
+          <h2>Grid size</h2>
+          <div class="placement-row">
+            <label>
+              Columns
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="gridConfig().cols"
+                (ngModelChange)="updateGridCols($event)"
+              />
+            </label>
+            <label>
+              Rows
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="gridConfig().rows"
+                (ngModelChange)="updateGridRows($event)"
+              />
+            </label>
+          </div>
+          <p class="muted">
+            Empty dashed cells accept drops. Occupied cells are locked.
+          </p>
+        } @else if (isGridChild()) {
+          <h2>Cell placement</h2>
+          <p class="muted">Start cell and how many cells this item covers.</p>
+          <div class="placement-row">
+            <label>
+              Col start
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="childPlacement().colStart"
+                (ngModelChange)="updateChildColStart($event)"
+              />
+            </label>
+            <label>
+              Row start
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="childPlacement().rowStart"
+                (ngModelChange)="updateChildRowStart($event)"
+              />
+            </label>
+          </div>
+          <div class="placement-row">
+            <label>
+              Col span
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="childPlacement().colSpan"
+                (ngModelChange)="updateChildColSpan($event)"
+              />
+            </label>
+            <label>
+              Row span
+              <input
+                type="number"
+                min="1"
+                max="24"
+                [ngModel]="childPlacement().rowSpan"
+                (ngModelChange)="updateChildRowSpan($event)"
+              />
+            </label>
+          </div>
+        } @else {
+          <p class="muted">
+            Select a Grid to set columns/rows, or a grid item to move and resize its span.
+          </p>
+        }
+      }
+
+      @if (inspectorTab() === 'style') {
+        <h2>Appearance</h2>
+        @for (field of visibleStyleFields(); track field.key) {
+          <label>
+            {{ field.label }}
+            <span class="style-key">{{ field.key }}</span>
+            <input
+              [placeholder]="field.placeholder ?? ''"
+              [ngModel]="styleValue(field.key)"
+              (ngModelChange)="updateStyle(field.key, $event)"
+            />
+          </label>
+        }
+
+        @if (extraStyleEntries().length > 0) {
+          <h2>Custom styles</h2>
+          @for (entry of extraStyleEntries(); track entry.key) {
+            <div class="style-row">
+              <label>
+                {{ entry.key }}
+                <input
+                  [ngModel]="styleValue(entry.key)"
+                  (ngModelChange)="updateStyle(entry.key, $event)"
+                />
+              </label>
+              <button type="button" class="style-remove" (click)="removeStyle(entry.key)" title="Remove style">
+                ×
+              </button>
+            </div>
+          }
+        }
+
+        <h2>Add style</h2>
+        <div class="add-style">
+          <input
+            placeholder="property (e.g. letter-spacing)"
+            [(ngModel)]="newStyleKey"
+          />
+          <input
+            placeholder="value (e.g. 0.04em)"
+            [(ngModel)]="newStyleValue"
+            (keydown.enter)="addCustomStyle()"
+          />
+          <button type="button" class="add-style-btn" (click)="addCustomStyle()">Add</button>
+        </div>
+        <p class="muted">Size is controlled in Layout for grid items.</p>
+      }
+
+      @if (inspectorTab() === 'settings') {
+        <label>
+          Name
+          <input
+            type="text"
+            [ngModel]="node.name"
+            (ngModelChange)="updateNodeName($event)"
+          />
+        </label>
+        <label>
+          Type
+          <input type="text" [value]="node.type" disabled />
+        </label>
+        <label>
+          Version
+          <input type="text" [value]="node.version" disabled />
+        </label>
+
+        @if (canDeleteSelected()) {
+          <button type="button" class="delete-node" (click)="deleteSelected()">
+            Delete {{ node.type }}
+          </button>
+        } @else {
+          <p class="muted">The Page root can't be deleted.</p>
+        }
+      }
+    } @else {
+      <p class="muted">Select a node, or drop Grid onto Page / content onto a free cell.</p>
+    }
+
+    @if (showJson()) {
+      <h3>Layout JSON</h3>
+      <pre>{{ layout() | json }}</pre>
+      <h3>Content JSON</h3>
+      <pre>{{ content() | json }}</pre>
+    }
+  </aside>
+</div>
