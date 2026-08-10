@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostBinding, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostBinding, Input, Output, signal } from '@angular/core';
 import { NgStyle } from '@angular/common';
 import { ContentMap, Layout } from '../../core/models/layouts.models';
 import {
@@ -37,9 +37,22 @@ export class LayoutRenderer {
   @Output() selectNode = new EventEmitter<string>();
   @Output() dropOnNode = new EventEmitter<LayoutDropPayload>();
 
+  /** Active slide index for this node when it is a Carousel. */
+  carouselIndex = signal(0);
+
   @HostBinding('class.grid-item')
   get hostIsGridItem(): boolean {
     return this.inGrid;
+  }
+
+  @HostBinding('class.is-editable')
+  get hostEditable(): boolean {
+    return this.editable;
+  }
+
+  @HostBinding('class.is-preview')
+  get hostPreview(): boolean {
+    return !this.editable;
   }
 
   @HostBinding('class.selected-host')
@@ -62,6 +75,23 @@ export class LayoutRenderer {
     return this.inGrid ? '0' : null;
   }
 
+  @HostBinding('style.max-width')
+  get hostMaxWidth(): string | null {
+    return this.inGrid ? '100%' : null;
+  }
+
+  @HostBinding('style.min-height')
+  get hostMinHeight(): string | null {
+    return this.inGrid ? '0' : null;
+  }
+
+  @HostBinding('style.overflow')
+  get hostOverflow(): string | null {
+    // Clip in the editor only. In preview, avoid nested scrollports that steal trackpad scroll.
+    if (!this.inGrid) return null;
+    return this.editable ? 'hidden' : 'visible';
+  }
+
   @HostBinding('style.z-index')
   get hostZIndex(): string | null {
     return this.inGrid ? '1' : null;
@@ -77,12 +107,30 @@ export class LayoutRenderer {
     return this.inGrid ? '100%' : null;
   }
 
+  @HostBinding('style.width')
+  get hostWidth(): string | null {
+    return this.inGrid ? '100%' : null;
+  }
+
   slots() {
     return this.content[this.node.id] ?? {};
   }
 
   text(key: string): string {
     return String(this.slots()[key] ?? '');
+  }
+
+  cardIsMediaOnly(): boolean {
+    return !!this.text('image').trim() && !this.text('title').trim() && !this.text('description').trim();
+  }
+
+  /** Drop padding for image-only cards so the photo can fill edge-to-edge. */
+  cardVisualStyle(): Record<string, string> {
+    const style = { ...this.visualStyle() };
+    if (this.cardIsMediaOnly()) {
+      style['padding'] = '0';
+    }
+    return style;
   }
 
   carouselItems(): CarouselSlide[] {
@@ -97,11 +145,67 @@ export class LayoutRenderer {
       }));
   }
 
+  activeCarouselSlide(): CarouselSlide | null {
+    const items = this.carouselItems();
+    if (items.length === 0) return null;
+    const index = ((this.carouselIndex() % items.length) + items.length) % items.length;
+    return items[index] ?? null;
+  }
+
+  carouselCanNav(): boolean {
+    return this.carouselItems().length > 1;
+  }
+
+  carouselLabel(): string {
+    const total = this.carouselItems().length;
+    if (total === 0) return '';
+    const index = ((this.carouselIndex() % total) + total) % total;
+    return `${index + 1} / ${total}`;
+  }
+
+  prevCarouselSlide(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const total = this.carouselItems().length;
+    if (total <= 1) return;
+    this.carouselIndex.update((i) => (i - 1 + total) % total);
+  }
+
+  nextCarouselSlide(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const total = this.carouselItems().length;
+    if (total <= 1) return;
+    this.carouselIndex.update((i) => (i + 1) % total);
+  }
+
   /** Styles for the visual element (placement lives on the host when inGrid). */
   visualStyle(): Record<string, string> {
+    if (this.node.type === 'Grid') {
+      return this.normalizedGridStyle();
+    }
     if (!this.inGrid) return this.node.style;
     const { ['grid-column']: _c, ['grid-row']: _r, ...rest } = this.node.style;
-    return rest;
+    const overflow =
+      this.node.type === 'Carousel'
+        ? rest['overflow'] || 'hidden'
+        : this.editable
+          ? rest['overflow'] || 'auto'
+          : 'visible';
+    return {
+      ...rest,
+      'min-width': '0',
+      'max-width': '100%',
+      width: '100%',
+      height: '100%',
+      'max-height': '100%',
+      'box-sizing': 'border-box',
+      // Nested overflow:auto steals 2-finger page scroll in preview.
+      // Carousel must stay clipped so the track scrolls horizontally.
+      overflow,
+      'overflow-wrap': rest['overflow-wrap'] || 'anywhere',
+      'word-break': rest['word-break'] || 'break-word',
+    };
   }
 
   isSelected(): boolean {
@@ -127,10 +231,33 @@ export class LayoutRenderer {
       'grid-row': '1 / -1',
       display: 'grid',
       'grid-template-columns': `repeat(${cols}, minmax(0, 1fr))`,
-      'grid-template-rows': `repeat(${rows}, minmax(72px, auto))`,
+      'grid-template-rows': `repeat(${rows}, minmax(4.5rem, auto))`,
       gap: this.node.style['gap'] || '0.75rem',
       'pointer-events': 'none',
       'z-index': '0',
+      'min-width': '0',
+      'max-width': '100%',
+    };
+  }
+
+  private normalizedGridStyle(): Record<string, string> {
+    const { cols, rows } = getGridConfig(this.node);
+    return {
+      ...this.node.style,
+      display: 'grid',
+      'grid-template-columns': `repeat(${cols}, minmax(0, 1fr))`,
+      'grid-template-rows': `repeat(${rows}, minmax(4.5rem, auto))`,
+      'align-content': this.node.style['align-content'] || 'start',
+      'justify-items': this.node.style['justify-items'] || 'stretch',
+      'align-items': this.node.style['align-items'] || 'stretch',
+      width: this.node.style['width'] || '100%',
+      'max-width': '100%',
+      'min-width': '0',
+      // Hidden only while editing so preview does not trap scroll.
+      overflow: this.editable
+        ? this.node.style['overflow'] || 'hidden'
+        : this.node.style['overflow'] || 'visible',
+      'box-sizing': 'border-box',
     };
   }
 
@@ -138,6 +265,13 @@ export class LayoutRenderer {
     if (!this.editable) return;
     event.stopPropagation();
     this.selectNode.emit(this.node.id);
+  }
+
+  /** In the editor, block navigation so selection works; in preview, allow links. */
+  onAnchorClick(event: MouseEvent) {
+    if (!this.editable) return;
+    event.preventDefault();
+    this.onClick(event);
   }
 
   onDragOver(event: DragEvent) {

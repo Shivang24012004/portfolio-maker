@@ -50,11 +50,6 @@ export function createNode(type: LayoutType, parentId: string): Layout {
   };
 }
 
-/**
- * Sensible, fluid defaults for every LayoutType.
- * Uses clamp / % / auto-fit so layouts stay usable across widths.
- * Users can override any key via the Style inspector.
- */
 export function defaultStyle(type: LayoutType): Record<string, string> {
   return { ...DEFAULT_STYLES[type] };
 }
@@ -130,12 +125,18 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     '--grid-cols': '2',
     '--grid-rows': '5',
     'grid-template-columns': 'repeat(2, minmax(0, 1fr))',
-    'grid-template-rows': 'repeat(5, minmax(72px, auto))',
+    'grid-template-rows': 'repeat(5, minmax(4.5rem, auto))',
+    'align-content': 'start',
+    'justify-items': 'stretch',
+    'align-items': 'stretch',
     gap: '0.75rem',
     width: '100%',
+    'max-width': '100%',
+    'min-width': '0',
     padding: '1rem',
     margin: '0 0 1rem 0',
     position: 'relative',
+    overflow: 'hidden',
     'border-bottom': '1px solid #1e293b',
   },
 
@@ -159,12 +160,13 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     'box-sizing': 'border-box',
     width: '100%',
     'min-width': '0',
+    'max-width': '100%',
     height: '100%',
     background: '#111827',
     border: '1px solid #1f2937',
     'border-radius': '0.5rem',
     padding: 'clamp(0.85rem, 2vw, 1.1rem)',
-    overflow: 'hidden',
+    overflow: 'auto',
   },
 
   SectionTitle: {
@@ -175,7 +177,9 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     'font-weight': '700',
     'line-height': '1.2',
     'min-width': '0',
-    'overflow-wrap': 'break-word',
+    'max-width': '100%',
+    'overflow-wrap': 'anywhere',
+    'word-break': 'break-word',
   },
 
   SmallText: {
@@ -185,6 +189,10 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     'font-size': 'clamp(0.875rem, 2vw, 1rem)',
     'line-height': '1.5',
     color: '#cbd5e1',
+    'min-width': '0',
+    'max-width': '100%',
+    'overflow-wrap': 'anywhere',
+    'word-break': 'break-word',
   },
 
   LongText: {
@@ -195,7 +203,9 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     'line-height': '1.65',
     color: '#94a3b8',
     'min-width': '0',
-    'overflow-wrap': 'break-word',
+    'max-width': '100%',
+    'overflow-wrap': 'anywhere',
+    'word-break': 'break-word',
   },
 
   Carousel: {
@@ -203,9 +213,12 @@ export const DEFAULT_STYLES: Record<LayoutType, Record<string, string>> = {
     display: 'flex',
     'flex-direction': 'column',
     width: '100%',
+    height: '100%',
     'min-width': '0',
+    'max-width': '100%',
     'min-height': '8rem',
-    padding: '0.25rem 0',
+    padding: '0',
+    overflow: 'hidden',
   },
 
   Button: {
@@ -350,9 +363,15 @@ export function setGridConfig(node: Layout, cols: number, rows: number): void {
   node.style['--grid-cols'] = String(c);
   node.style['--grid-rows'] = String(r);
   node.style['grid-template-columns'] = `repeat(${c}, minmax(0, 1fr))`;
-  node.style['grid-template-rows'] = `repeat(${r}, minmax(72px, auto))`;
+  node.style['grid-template-rows'] = `repeat(${r}, minmax(4.5rem, auto))`;
+  node.style['align-content'] = node.style['align-content'] || 'start';
+  node.style['justify-items'] = node.style['justify-items'] || 'stretch';
+  node.style['align-items'] = node.style['align-items'] || 'stretch';
   node.style['position'] = node.style['position'] || 'relative';
   node.style['width'] = node.style['width'] || '100%';
+  node.style['max-width'] = '100%';
+  node.style['min-width'] = '0';
+  node.style['overflow'] = node.style['overflow'] || 'hidden';
 }
 
 export function prepareGridChildStyles(style: Record<string, string>): void {
@@ -360,9 +379,14 @@ export function prepareGridChildStyles(style: Record<string, string>): void {
   delete style['max-width'];
   delete style['min-height'];
   style['min-width'] = '0';
+  style['max-width'] = '100%';
   style['width'] = '100%';
   style['height'] = '100%';
+  style['max-height'] = '100%';
   style['box-sizing'] = 'border-box';
+  style['overflow'] = style['overflow'] || 'auto';
+  style['overflow-wrap'] = style['overflow-wrap'] || 'anywhere';
+  style['word-break'] = style['word-break'] || 'break-word';
 }
 
 export function listGridCells(grid: Layout): Array<{
