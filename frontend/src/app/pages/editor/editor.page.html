@@ -26,14 +26,38 @@
   </aside>
 
   <main class="canvas">
-    <app-layout-renderer
-      [node]="layout()"
-      [content]="content()"
-      [editable]="true"
-      [selectedId]="selectedId()"
-      (selectNode)="onSelect($event)"
-      (dropOnNode)="onDropOnNode($event)"
-    />
+    <div class="editor-toolbar">
+      <a routerLink="/portfolios">← Portfolios</a>
+      <button
+        type="button"
+        class="save-btn"
+        (click)="save()"
+        [disabled]="saving() || loading() || !layout()"
+      >
+        {{ saving() ? 'Saving…' : 'Save' }}
+      </button>
+      @if (layout(); as root) {
+        <a [routerLink]="['/preview', root.id]">Preview</a>
+      }
+      @if (saveMessage()) {
+        <span class="save-status">{{ saveMessage() }}</span>
+      }
+    </div>
+
+    @if (loading()) {
+      <p class="canvas-status">Loading…</p>
+    } @else if (loadError()) {
+      <p class="canvas-status error">{{ loadError() }}</p>
+    } @else if (layout(); as root) {
+      <app-layout-renderer
+        [node]="root"
+        [content]="content()"
+        [editable]="true"
+        [selectedId]="selectedId()"
+        (selectNode)="onSelect($event)"
+        (dropOnNode)="onDropOnNode($event)"
+      />
+    }
   </main>
 
   <aside class="inspector">

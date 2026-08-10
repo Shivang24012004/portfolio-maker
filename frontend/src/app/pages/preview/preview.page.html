@@ -1,1 +1,22 @@
-<p>preview works!</p>
+<div class="preview-shell">
+  <header class="preview-bar">
+    <div class="preview-bar-start">
+      @if (layout(); as root) {
+        <span class="preview-title">{{ root.name }}</span>
+      }
+    </div>
+  </header>
+
+  <div class="preview-canvas">
+    @if (loading()) {
+      <p class="status">Loading preview…</p>
+    } @else if (error()) {
+      <div class="status-block">
+        <p class="status error">{{ error() }}</p>
+        <a routerLink="/portfolios">Back to portfolios</a>
+      </div>
+    } @else if (layout(); as root) {
+      <app-layout-renderer [node]="root" [content]="content()" [editable]="false" />
+    }
+  </div>
+</div>

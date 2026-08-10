@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.preview-shell {
+  min-height: 100vh;
+  background: #020617;
+}
+
+.preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid #1e293b;
+  background: #0f172a;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.preview-bar-start,
+.preview-bar-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.preview-bar a {
+  color: #5eead4;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.preview-title {
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  max-width: min(40vw, 20rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-canvas {
+  width: 100%;
+}
+
+.preview-canvas > app-layout-renderer {
+  display: block;
+  width: 100%;
+}
+
+.status,
+.status-block {
+  padding: 2.5rem 1.5rem;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.status {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.status.error {
+  color: #fca5a5;
+  margin-bottom: 1rem;
+}
+
+.status-block a {
+  color: #5eead4;
+  text-decoration: none;
+  font-size: 0.95rem;
+}

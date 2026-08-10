@@ -1,14 +1,17 @@
-import { Component, HostListener, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import {
   CONTENT_SLOTS,
   CONTENT_TYPES,
+  ContentMap,
   Layout,
+  LayoutData,
   LayoutType,
   STRUCTURE_TYPES,
 } from '../../core/models/layouts.models';
-import { SAMPLE_LAYOUT, SAMPLE_LAYOUT_DATA } from '../../core/data/sample-layout';
 import { LayoutRenderer } from '../../shared/layout-renderer/layout-renderer';
 import {
   canDropOnChrome,
@@ -34,6 +37,8 @@ import {
   setPlacement,
 } from '../../core/utils/layout-tree';
 import { LayoutDropPayload } from '../../shared/layout-renderer/layout-renderer';
+import { LayoutApiService } from '../../core/services/layout-api.service';
+import { LayoutDataApiService } from '../../core/services/layout-data-api.service';
 
 type InspectorTab = 'content' | 'layout' | 'style' | 'settings';
 type SlotControl = 'text' | 'textarea' | 'url' | 'items';
@@ -97,13 +102,24 @@ const SLOT_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [LayoutRenderer, FormsModule, JsonPipe],
+  imports: [LayoutRenderer, FormsModule, JsonPipe, RouterLink],
   templateUrl: './editor.page.html',
   styleUrl: './editor.page.css',
 })
-export class EditorPage {
-  layout = signal<Layout>(structuredClone(SAMPLE_LAYOUT));
-  content = signal(structuredClone(SAMPLE_LAYOUT_DATA.content));
+export class EditorPage implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly layoutsApi = inject(LayoutApiService);
+  private readonly layoutDataApi = inject(LayoutDataApiService);
+
+  layout = signal<Layout | null>(null);
+  content = signal<ContentMap>({});
+  layoutDataMeta = signal<Pick<LayoutData, 'id' | 'layout_id' | 'version'> | null>(null);
+
+  loading = signal(true);
+  saving = signal(false);
+  loadError = signal<string | null>(null);
+  saveMessage = signal<string | null>(null);
+
   selectedId = signal<string | null>(null);
   showJson = signal(false);
   inspectorTab = signal<InspectorTab>('content');
@@ -116,15 +132,27 @@ export class EditorPage {
   newStyleKey = '';
   newStyleValue = '';
 
+  ngOnInit(): void {
+    const layoutId = this.route.snapshot.paramMap.get('layoutId');
+    if (!layoutId) {
+      this.loadError.set('Missing layout id');
+      this.loading.set(false);
+      return;
+    }
+    this.load(layoutId);
+  }
+
   selectedNode(): Layout | null {
+    const root = this.layout();
     const id = this.selectedId();
-    return id ? findNode(this.layout(), id) : null;
+    return root && id ? findNode(root, id) : null;
   }
 
   selectedParent(): Layout | null {
+    const root = this.layout();
     const id = this.selectedId();
-    if (!id) return null;
-    return findParent(this.layout(), id);
+    if (!root || !id) return null;
+    return findParent(root, id);
   }
 
   isGridNode(): boolean {
@@ -222,26 +250,66 @@ export class EditorPage {
     this.inspectorTab.set(tab);
   }
 
+  save(): void {
+    const root = this.layout();
+    const meta = this.layoutDataMeta();
+    if (!root || !meta || this.saving()) return;
+
+    this.saving.set(true);
+    this.saveMessage.set(null);
+
+    const dataPayload: LayoutData = {
+      id: meta.id,
+      layout_id: meta.layout_id,
+      version: meta.version,
+      content: this.content(),
+    };
+
+    forkJoin({
+      layout: this.layoutsApi.update(root.id, root),
+      data: this.layoutDataApi.update(meta.id, dataPayload),
+    }).subscribe({
+      next: ({ layout, data }) => {
+        this.layout.set(layout);
+        this.content.set(data.content ?? {});
+        this.layoutDataMeta.set({
+          id: data.id,
+          layout_id: data.layout_id,
+          version: data.version,
+        });
+        this.saving.set(false);
+        this.saveMessage.set('Saved');
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.saveMessage.set(this.errorDetail(err, 'Save failed'));
+      },
+    });
+  }
+
   onPaletteDragStart(event: DragEvent, type: LayoutType): void {
     event.dataTransfer?.setData('application/x-layout-type', type);
     event.dataTransfer!.effectAllowed = 'copy';
   }
 
   onSelect(id: string): void {
+    const root = this.layout();
+    if (!root) return;
+
     this.selectedId.set(id);
     this.newStyleKey = '';
     this.newStyleValue = '';
     this.itemsError.set(null);
     this.dropMessage.set(null);
 
-    const node = findNode(this.layout(), id);
+    const node = findNode(root, id);
     if (node && CONTENT_SLOTS[node.type].length > 0 && !this.content()[id]) {
       const next = structuredClone(this.content());
       initContentSlots(next, node);
       this.content.set(next);
     }
 
-    const parent = node ? findParent(this.layout(), id) : null;
+    const parent = node ? findParent(root, id) : null;
     if (node?.type === 'Grid' || parent?.type === 'Grid') {
       this.inspectorTab.set('layout');
     } else if (node && CONTENT_SLOTS[node.type].length > 0) {
@@ -253,14 +321,15 @@ export class EditorPage {
 
   onDropOnNode(payload: LayoutDropPayload): void {
     const type = payload.type as LayoutType;
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
+
     let parent = findNode(root, payload.parentId);
     if (!parent || !canHaveChildren(parent.type)) return;
 
     this.dropMessage.set(null);
 
     // Dropping Grid/Navbar/Footer onto a covered section still means "add to Page".
-    // Existing grids capture most of the canvas, so Page itself is hard to hit.
     if (parent.type !== 'Page' && canDropOnPage(type)) {
       if (root.type !== 'Page') {
         this.dropMessage.set('Could not find the Page to place this section.');
@@ -295,7 +364,6 @@ export class EditorPage {
 
       if (colStart != null && rowStart != null) {
         if (!isCellFree(parent, colStart, rowStart)) {
-          // Occupied cell: grow / find next free instead of failing hard
           const grown = findNextFreeCellOrGrow(parent);
           if (!grown) {
             this.dropMessage.set('Grid is full (max rows reached). Free a cell or add another Grid.');
@@ -348,7 +416,8 @@ export class EditorPage {
   updateGridCols(raw: string | number): void {
     const nodeId = this.selectedId();
     if (!nodeId) return;
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
     const node = findNode(root, nodeId);
     if (!node || node.type !== 'Grid') return;
     const { rows } = getGridConfig(node);
@@ -365,7 +434,8 @@ export class EditorPage {
   updateGridRows(raw: string | number): void {
     const nodeId = this.selectedId();
     if (!nodeId) return;
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
     const node = findNode(root, nodeId);
     if (!node || node.type !== 'Grid') return;
     const { cols } = getGridConfig(node);
@@ -425,7 +495,8 @@ export class EditorPage {
   updateNodeName(name: string): void {
     const id = this.selectedId();
     if (!id) return;
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
     const node = findNode(root, id);
     if (!node) return;
     node.name = name;
@@ -436,7 +507,8 @@ export class EditorPage {
     const id = this.selectedId();
     if (!id) return;
 
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
     const node = findNode(root, id);
     if (!node) return;
 
@@ -467,8 +539,8 @@ export class EditorPage {
   }
 
   deleteNode(id: string): void {
-    const root = structuredClone(this.layout());
-    if (root.id === id) return;
+    const root = this.cloneRoot();
+    if (!root || root.id === id) return;
 
     const target = findNode(root, id);
     if (!target) return;
@@ -496,14 +568,21 @@ export class EditorPage {
   }
 
   canDeleteSelected(): boolean {
+    const root = this.layout();
     const id = this.selectedId();
-    return !!id && id !== this.layout().id;
+    return !!root && !!id && id !== root.id;
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      this.save();
       return;
     }
 
@@ -517,6 +596,36 @@ export class EditorPage {
       event.preventDefault();
       this.deleteSelected();
     }
+  }
+
+  private load(layoutId: string): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+
+    forkJoin({
+      layout: this.layoutsApi.getById(layoutId),
+      data: this.layoutDataApi.getByLayoutId(layoutId),
+    }).subscribe({
+      next: ({ layout, data }) => {
+        this.layout.set(layout);
+        this.content.set(data.content ?? {});
+        this.layoutDataMeta.set({
+          id: data.id,
+          layout_id: data.layout_id,
+          version: data.version,
+        });
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loadError.set(this.errorDetail(err, 'Failed to load layout'));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private cloneRoot(): Layout | null {
+    const root = this.layout();
+    return root ? structuredClone(root) : null;
   }
 
   private commitDrop(root: Layout, child: Layout, type: LayoutType): void {
@@ -537,16 +646,19 @@ export class EditorPage {
     return true;
   }
 
-  private updateChildPlacement(patch: Partial<{
-    colStart: number;
-    rowStart: number;
-    colSpan: number;
-    rowSpan: number;
-  }>): void {
+  private updateChildPlacement(
+    patch: Partial<{
+      colStart: number;
+      rowStart: number;
+      colSpan: number;
+      rowSpan: number;
+    }>,
+  ): void {
     const id = this.selectedId();
     if (!id) return;
 
-    const root = structuredClone(this.layout());
+    const root = this.cloneRoot();
+    if (!root) return;
     const parent = findParent(root, id);
     const node = findNode(root, id);
     if (!parent || parent.type !== 'Grid' || !node) return;
@@ -636,5 +748,10 @@ export class EditorPage {
       return 'Optional. Shown only when this field has a value.';
     }
     return undefined;
+  }
+
+  private errorDetail(err: unknown, fallback: string): string {
+    const detail = (err as { error?: { detail?: string } })?.error?.detail;
+    return typeof detail === 'string' ? detail : fallback;
   }
 }

@@ -1,1 +1,39 @@
-<p>dashboard works!</p>
+<section class="dashboard">
+  <header class="dashboard-header">
+    <div>
+      <p class="eyebrow"><a routerLink="/">Portfolio Maker</a></p>
+      <h1>Portfolios</h1>
+    </div>
+    <button type="button" class="primary" (click)="createPortfolio()" [disabled]="creating()">
+      {{ creating() ? 'Creating…' : 'New portfolio' }}
+    </button>
+  </header>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (layouts().length === 0) {
+    <p class="muted">No portfolios yet. Create one to open the editor.</p>
+  } @else {
+    <ul class="portfolio-list">
+      @for (item of layouts(); track item.id) {
+        <li class="portfolio-row">
+          <div class="portfolio-meta">
+            <a class="portfolio-name" [routerLink]="['/editor', item.id]">{{ item.name }}</a>
+            <span class="muted">v{{ item.version }}</span>
+          </div>
+          <div class="portfolio-actions">
+            <a [routerLink]="['/editor', item.id]">Edit</a>
+            <a [routerLink]="['/preview', item.id]">Preview</a>
+            <button type="button" class="danger" (click)="deletePortfolio(item.id, $event)">
+              Delete
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

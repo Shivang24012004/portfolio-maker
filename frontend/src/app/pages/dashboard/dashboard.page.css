@@ -1,0 +1,119 @@
+.dashboard {
+  min-height: 100vh;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background: #020617;
+  color: #e2e8f0;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.dashboard-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.eyebrow a {
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 600;
+}
+
+.primary,
+.danger,
+.portfolio-actions a,
+.portfolio-actions button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  padding: 0.65rem 1.1rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: #14b8a6;
+  color: #042f2e;
+  font-weight: 600;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.portfolio-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 48rem;
+}
+
+.portfolio-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #1e293b;
+  border-radius: 0.5rem;
+  background: #0f172a;
+}
+
+.portfolio-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.portfolio-name {
+  color: #f8fafc;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.portfolio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.portfolio-actions a {
+  color: #5eead4;
+  text-decoration: none;
+}
+
+.danger {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #7f1d1d;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #fca5a5;
+}
+
+.muted {
+  color: #94a3b8;
+}
+
+.error {
+  color: #fca5a5;
+  margin-bottom: 1rem;
+}

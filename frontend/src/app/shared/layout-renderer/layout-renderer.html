@@ -240,7 +240,7 @@
       [class.selected]="isSelected()"
       [ngStyle]="visualStyle()"
       [href]="text('href') || '#'"
-      (click)="onClick($event); $event.preventDefault()"
+      (click)="onAnchorClick($event)"
     >
       {{ text('label') || 'Button' }}
     </a>
@@ -252,21 +252,35 @@
       [class.selected]="isSelected()"
       [ngStyle]="visualStyle()"
       [href]="text('href') || '#'"
-      (click)="onClick($event); $event.preventDefault()"
+      (click)="onAnchorClick($event)"
     >
       {{ text('label') || 'Link' }}
     </a>
   }
 
+  @case ('Image') {
+    <img
+      class="layout-node layout-image"
+      [class.selected]="isSelected()"
+      [ngStyle]="visualStyle()"
+      [src]="text('src') || ''"
+      [alt]="text('alt') || ''"
+      (click)="onClick($event)"
+    />
+  }
+
   @case ('Card') {
     <article
       class="layout-node card"
+      [class.card--media-only]="cardIsMediaOnly()"
       [class.selected]="isSelected()"
-      [ngStyle]="visualStyle()"
+      [ngStyle]="cardVisualStyle()"
       (click)="onClick($event)"
     >
       @if (text('image')) {
-        <img [src]="text('image')" [alt]="text('title') || 'Card image'" />
+        <div class="card-media-frame">
+          <img [src]="text('image')" [alt]="text('title') || 'Card image'" />
+        </div>
       }
       @if (text('title')) {
         <h3 class="card-title">{{ text('title') }}</h3>
@@ -288,23 +302,50 @@
         <div class="carousel-empty">
           {{ editable ? 'Add slides in Content → items (JSON array)' : 'No slides' }}
         </div>
-      } @else {
-        <div class="carousel-track">
-          @for (slide of carouselItems(); track $index) {
-            <article class="carousel-slide">
-              @if (slide.image) {
+      } @else if (activeCarouselSlide(); as slide) {
+        <div class="carousel-stage">
+          <article
+            class="carousel-slide"
+            [class.carousel-slide--media-only]="!!slide.image && !slide.title && !slide.description"
+          >
+            @if (slide.image) {
+              <div class="carousel-slide-media">
                 <img [src]="slide.image" [alt]="slide.title || 'Slide image'" />
-              }
-              @if (slide.title) {
-                <h3 class="carousel-slide-title">{{ slide.title }}</h3>
-              }
-              @if (slide.description) {
-                <p class="carousel-slide-description">{{ slide.description }}</p>
-              }
-              @if (!slide.image && !slide.title && !slide.description) {
-                <p class="carousel-slide-description">Empty slide</p>
-              }
-            </article>
+              </div>
+            }
+            @if (slide.title) {
+              <h3 class="carousel-slide-title">{{ slide.title }}</h3>
+            }
+            @if (slide.description) {
+              <p class="carousel-slide-description">{{ slide.description }}</p>
+            }
+            @if (!slide.image && !slide.title && !slide.description) {
+              <p class="carousel-slide-description">Empty slide</p>
+            }
+          </article>
+
+          @if (carouselCanNav()) {
+            <button
+              type="button"
+              class="carousel-nav carousel-nav--prev"
+              aria-label="Previous slide"
+              (click)="prevCarouselSlide($event)"
+            >
+              <svg class="carousel-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="carousel-nav carousel-nav--next"
+              aria-label="Next slide"
+              (click)="nextCarouselSlide($event)"
+            >
+              <svg class="carousel-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="carousel-counter" aria-live="polite">{{ carouselLabel() }}</div>
           }
         </div>
       }
