@@ -1,8 +1,8 @@
 from typing import Any, Dict
-from uuid import UUID
+from pydantic import Field
 from app.models.base import MongoModel
 
 class LayoutData(MongoModel):
-    layout_id: UUID
+    name: str = "Untitled Portfolio"
     version: int = 1
-    content: Dict[str, Dict[str, Any]]
+    content: Dict[str, Any] = Field(default_factory=lambda: {"content": [], "root": {}})
