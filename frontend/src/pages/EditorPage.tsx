@@ -114,6 +114,13 @@ export function EditorPage() {
           data={data}
           onPublish={handlePublish}
           onChange={(newData) => setData(newData)}
+          permissions={{
+            drag: true,
+            edit: true,
+            delete: true,
+            duplicate: true,
+            insert: true,
+          }}
         />
       </main>
     </div>

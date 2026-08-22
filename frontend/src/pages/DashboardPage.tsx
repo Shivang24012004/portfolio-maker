@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { layoutDataApi } from "../api/layout-data";
 import { errorMessage } from "../api/http";
 import type { LayoutData } from "../domain/layouts";
@@ -7,6 +8,7 @@ import { initialData } from "../puck/config";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [portfolios, setPortfolios] = useState<LayoutData[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -31,6 +33,22 @@ export function DashboardPage() {
   useEffect(() => {
     void reload();
   }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
+
+  function openCreateModal() {
+    setNewPortfolioName("");
+    setError(null);
+    setIsModalOpen(true);
+  }
 
   async function handleCreatePortfolio(e: FormEvent) {
     e.preventDefault();
@@ -70,6 +88,14 @@ export function DashboardPage() {
     }
   }
 
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
+  const userDisplayName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email : "Account";
+  const userInitials = user?.first_name ? `${user.first_name[0]}${user.last_name ? user.last_name[0] : ""}`.toUpperCase() : "U";
+
   return (
     <div className="dashboard-container">
       {/* Navigation Bar */}
@@ -84,11 +110,33 @@ export function DashboardPage() {
         <div className="navbar-actions">
           <button
             type="button"
-            className="btn-primary"
-            onClick={() => setIsModalOpen(true)}
+            className="btn-primary btn-new-portfolio"
+            onClick={openCreateModal}
+            id="navbar-new-portfolio-btn"
           >
-            <span className="btn-icon">+</span> New Portfolio
+            <span className="btn-icon">＋</span>
+            <span>New Portfolio</span>
           </button>
+
+          {user && (
+            <div className="navbar-user-section">
+              <div className="user-badge" title={user.email}>
+                <div className="user-avatar">{userInitials}</div>
+                <div className="user-info-text">
+                  <span className="user-name">{userDisplayName}</span>
+                  <span className="user-email">{user.email}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-logout"
+                onClick={handleLogout}
+                title="Sign out of your account"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -134,9 +182,9 @@ export function DashboardPage() {
             <button
               type="button"
               className="btn-primary"
-              onClick={() => setIsModalOpen(true)}
+              onClick={openCreateModal}
             >
-              <span className="btn-icon">+</span> Create Portfolio
+              <span className="btn-icon">＋</span> Create Portfolio
             </button>
           </div>
         ) : (

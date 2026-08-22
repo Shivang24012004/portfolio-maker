@@ -8,4 +8,3 @@ export interface LayoutData {
 }
 
 export type Portfolio = LayoutData;
-export type Layout = LayoutData;
